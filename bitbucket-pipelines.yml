@@ -1,0 +1,54 @@
+# This is a sample build configuration for JavaScript.
+# Check our guides at https://confluence.atlassian.com/x/14UWN for more examples.
+# Only use spaces to indent your .yml configuration.
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+# Editable Version
+image: node:10.15.3
+
+pipelines:
+  branches:
+    <BRANCH_NAME_DEV>:
+      - step:
+          caches:
+            - node
+          script:
+            # install Amazon CLI
+            - apt-get update && apt-get install -y python-dev
+            - curl -O https://bootstrap.pypa.io/get-pip.py
+            - python get-pip.py
+            - pip install awscli
+            # install Yarn (for project dependencies)
+            - curl -o- -L https://yarnpkg.com/install.sh | bash -s -- --version 0.18.1
+            - export PATH=$HOME/.yarn/bin:$PATH
+            # get project dependencies
+            - npm install
+            # build project - adjust to whatever build script you run. This is optional but recommended if you have test cases in your project and you want extra layer of security
+            - npm test
+            # You can include a prodBuild script in package.json which points to your dev environment
+            - CI='false' npm run build
+            # sync files in “build” folder with Amazon S3 bucket "your-s3-bucket-name" (allow files to be publicly accessible and delete old files)
+            - aws s3 cp --recursive --acl public-read ./build s3://<your-s3-bucket-name>/
+            - aws cloudfront create-invalidation --distribution-id <your-distribution-id> --paths "/*"
+    <BRANCH_NAME_PROD>:
+      - step:
+          caches:
+            - node
+          script:
+            # install Amazon CLI
+            - apt-get update && apt-get install -y python-dev
+            - curl -O https://bootstrap.pypa.io/get-pip.py
+            - python get-pip.py
+            - pip install awscli
+            # install Yarn (for project dependencies)
+            - curl -o- -L https://yarnpkg.com/install.sh | bash -s -- --version 0.18.1
+            - export PATH=$HOME/.yarn/bin:$PATH
+            # get project dependencies
+            - npm install
+            # build project - adjust to whatever build script you run. This is optional if you have test cases in your project and you want extra layer of security
+            - npm test
+            # You can include a prodBuild script in package.json which points to your prod environment
+            - CI='false' npm run build
+            # sync files in “build” folder with Amazon S3 bucket "your-s3-bucket-name" (allow files to be publicly accessible and delete old files)
+            - aws s3 cp --recursive --acl public-read ./build s3://<your-s3-bucket-name>/
+            - aws cloudfront create-invalidation --distribution-id <your-distribution-id> --paths "/*"
